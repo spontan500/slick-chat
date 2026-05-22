@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slick - Social Media App</title>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JS Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Core Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Animations -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- AUTH SCREEN (LOGIN / SIGNUP) -->
+  <div id="auth-screen" class="auth-overlay active">
+    <div class="auth-card glass">
+      <div class="auth-header">
+        <div class="logo">
+          <i data-lucide="message-square-code" class="logo-icon"></i>
+          <span>Slick</span>
+        </div>
+        <h2>Willkommen bei Slick</h2>
+        <p>Erstelle ein Konto oder logge dich ein, um loszulegen.</p>
+      </div>
+
+      <form id="auth-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="username">Benutzername</label>
+          <input type="text" id="username" placeholder="z.B. max_mustermann" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="display-name">Anzeigename</label>
+          <input type="text" id="display-name" placeholder="z.B. Max Mustermann" required>
+        </div>
+        
+        <div class="form-group">
+          <label>Profilbild auswählen</label>
+          <div class="avatar-selection-grid">
+            <label class="avatar-option selected">
+              <input type="radio" name="avatar" value="avatar1" checked>
+              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Felix" alt="Avatar 1">
+            </label>
+            <label class="avatar-option">
+              <input type="radio" name="avatar" value="avatar2">
+              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Marie" alt="Avatar 2">
+            </label>
+            <label class="avatar-option">
+              <input type="radio" name="avatar" value="avatar3">
+              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Lukas" alt="Avatar 3">
+            </label>
+            <label class="avatar-option">
+              <input type="radio" name="avatar" value="avatar4">
+              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Sophie" alt="Avatar 4">
+            </label>
+            <label class="avatar-option custom-avatar-upload">
+              <input type="radio" name="avatar" value="custom" id="custom-avatar-radio">
+              <div class="upload-icon-container">
+                <i data-lucide="upload-cloud"></i>
+                <span>Eigenes</span>
+              </div>
+              <input type="file" id="custom-avatar-file" accept="image/*" style="display:none">
+              <img id="custom-avatar-preview" src="" alt="Custom Avatar Preview" style="display:none">
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
+          <span>Konto erstellen / Einloggen</span>
+          <i data-lucide="arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- MAIN APP SCREEN -->
+  <div id="app-screen" class="app-layout">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div class="logo">
+            <i data-lucide="message-square-code" class="logo-icon"></i>
+            <span>Slick</span>
+          </div>
+          <div id="connection-status" class="conn-badge status-sandbox">Sandbox Mode</div>
+        </div>
+        <button id="search-trigger-btn" class="icon-btn" title="Nachrichten suchen">
+          <i data-lucide="search"></i>
+        </button>
+      </div>
+
+      <div class="sidebar-scrollable">
+        <!-- User Profile Panel -->
+        <div class="current-user-panel">
+          <div class="avatar-container">
+            <img id="user-profile-img" src="" alt="Dein Profilbild">
+            <span class="status-indicator online"></span>
+          </div>
+          <div class="user-meta">
+            <div id="user-display-name" class="display-name"></div>
+            <div id="user-handle" class="user-handle"></div>
+          </div>
+          <button id="logout-btn" class="icon-btn text-danger" title="Abmelden">
+            <i data-lucide="log-out"></i>
+          </button>
+        </div>
+
+        <!-- Channels Section -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3>Channels</h3>
+            <button id="add-channel-btn" class="icon-btn-small" title="Channel erstellen">
+              <i data-lucide="plus"></i>
+            </button>
+          </div>
+          <ul id="channels-list" class="sidebar-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+
+        <!-- Direct Messages Section -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3>Direktnachrichten</h3>
+          </div>
+          <ul id="dms-list" class="sidebar-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+
+        <!-- Reminders Section -->
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3>Erinnerungen</h3>
+            <span id="reminders-count-badge" class="badge bg-purple" style="display:none">0</span>
+          </div>
+          <ul id="reminders-list" class="sidebar-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CHAT AREA -->
+    <main class="chat-container">
+      <!-- Chat Header -->
+      <header class="chat-header glass">
+        <div class="channel-info">
+          <h2 id="active-chat-title">#general</h2>
+          <span id="active-chat-description" class="description">Standard-Channel für alle</span>
+        </div>
+        <div class="chat-header-actions">
+          <button id="channel-members-btn" class="btn btn-secondary btn-small">
+            <i data-lucide="users"></i>
+            <span id="member-count-text">0 Mitglieder</span>
+          </button>
+          <button id="invite-btn" class="btn btn-primary btn-small">
+            <i data-lucide="user-plus"></i>
+            <span>Einladen</span>
+          </button>
+        </div>
+      </header>
+
+      <!-- Message Area -->
+      <div id="message-feed" class="message-feed">
+        <!-- Dynamically populated messages -->
+      </div>
+
+      <!-- Typing Indicator -->
+      <div id="typing-indicator" class="typing-indicator" style="display:none;">
+        <span class="dots"><span></span><span></span><span></span></span>
+        <span id="typing-text">Bob schreibt...</span>
+      </div>
+
+      <!-- Message Editor / Composer -->
+      <footer class="composer-container glass">
+        <div id="file-previews-container" class="file-previews-container" style="display: none;">
+          <!-- Dynamically populated attachment previews -->
+        </div>
+        
+        <form id="message-form" class="composer-form" onsubmit="event.preventDefault();">
+          <div class="composer-input-row">
+            <textarea id="composer-textarea" rows="1" placeholder="Nachricht an #general schreiben..." required></textarea>
+            
+            <div class="composer-buttons">
+              <button type="button" id="attach-file-btn" class="icon-btn" title="Datei oder Bild anhängen">
+                <i data-lucide="paperclip"></i>
+              </button>
+              <button type="button" id="insert-link-btn" class="icon-btn" title="Link hinzufügen">
+                <i data-lucide="link"></i>
+              </button>
+              <button type="button" id="emoji-picker-btn" class="icon-btn" title="Emoji einfügen">
+                <i data-lucide="smile"></i>
+              </button>
+              <button type="submit" id="send-msg-btn" class="btn btn-primary btn-circle" title="Senden">
+                <i data-lucide="send"></i>
+              </button>
+            </div>
+          </div>
+          <input type="file" id="attachment-file-input" style="display:none" multiple>
+        </form>
+      </footer>
+    </main>
+
+    <!-- THREAD DISCUSSION PANEL -->
+    <aside id="thread-panel" class="thread-panel glass">
+      <header class="thread-header">
+        <div class="thread-title">
+          <h3>Thread</h3>
+          <span id="thread-parent-channel">in #general</span>
+        </div>
+        <button id="close-thread-btn" class="icon-btn" title="Thread schließen">
+          <i data-lucide="x"></i>
+        </button>
+      </header>
+
+      <div class="thread-scrollable">
+        <!-- Parent Message Container -->
+        <div id="thread-parent-message" class="thread-parent-message">
+          <!-- Filled dynamically -->
+        </div>
+
+        <div class="thread-divider">
+          <span>Antworten</span>
+        </div>
+
+        <!-- Thread Messages List -->
+        <div id="thread-replies-list" class="thread-replies-list">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+
+      <!-- Thread Composer -->
+      <footer class="thread-composer glass">
+        <form id="thread-form" onsubmit="event.preventDefault();">
+          <textarea id="thread-textarea" rows="1" placeholder="Antworten..." required></textarea>
+          <div class="thread-composer-footer">
+            <button type="button" id="thread-emoji-btn" class="icon-btn" title="Emoji">
+              <i data-lucide="smile"></i>
+            </button>
+            <button type="submit" class="btn btn-primary btn-small">
+              <span>Antworten</span>
+            </button>
+          </div>
+        </form>
+      </footer>
+    </aside>
+  </div>
+
+  <!-- MODALS CONTAINER -->
+  <div id="modal-container" class="modal-overlay">
+    
+    <!-- Modal: Channel erstellen -->
+    <div id="create-channel-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2>Channel erstellen</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="create-channel-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="new-channel-name">Channel-Name</label>
+          <div class="input-with-prefix">
+            <span class="prefix">#</span>
+            <input type="text" id="new-channel-name" placeholder="z.B. marketing-planung" required pattern="^[a-z0-9-_]+$" title="Nur Kleinbuchstaben, Zahlen, Bindestriche und Unterstriche erlaubt.">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="new-channel-desc">Beschreibung (optional)</label>
+          <input type="text" id="new-channel-desc" placeholder="Worum geht es in diesem Channel?">
+        </div>
+        <div class="form-group checkbox-group">
+          <label class="toggle-switch">
+            <input type="checkbox" id="new-channel-private">
+            <span class="slider"></span>
+          </label>
+          <div class="toggle-labels">
+            <span class="toggle-title">Privater Channel</span>
+            <span class="toggle-desc">Wenn ein Channel privat ist, können andere Personen nur per Einladung beitreten.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Erstellen</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Mitglieder einladen -->
+    <div id="invite-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2>Personen einladen</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p>Wähle Personen aus, die du zu <strong id="invite-channel-name">#channel</strong> hinzufügen möchtest:</p>
+        <div id="invite-users-list" class="checkbox-list">
+          <!-- Dynamically populated user checkboxes -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal-btn">Abbrechen</button>
+        <button id="submit-invite-btn" class="btn btn-primary">Einladen</button>
+      </div>
+    </div>
+
+    <!-- Modal: Erinnerung einstellen -->
+    <div id="reminder-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2>Erinnerung einrichten</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <p>Wann möchtest du an diese Nachricht erinnert werden?</p>
+        <div class="reminder-presets">
+          <button type="button" class="btn btn-secondary reminder-preset-btn" data-seconds="5">In 5 Sekunden (zum Testen ⚡)</button>
+          <button type="button" class="btn btn-secondary reminder-preset-btn" data-seconds="600">In 10 Minuten</button>
+          <button type="button" class="btn btn-secondary reminder-preset-btn" data-seconds="3600">In 1 Stunde</button>
+          <button type="button" class="btn btn-secondary reminder-preset-btn" data-seconds="86400">Morgen um diese Zeit</button>
+        </div>
+        <div class="reminder-divider">
+          <span>Oder benutzerdefinierte Zeit wählen</span>
+        </div>
+        <div class="form-group">
+          <label for="custom-reminder-time">Datum & Uhrzeit</label>
+          <input type="datetime-local" id="custom-reminder-time" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary close-modal-btn">Abbrechen</button>
+        <button id="submit-reminder-btn" class="btn btn-primary">Erinnerung speichern</button>
+      </div>
+    </div>
+
+    <!-- Modal: Link hinzufügen (Hilfs-Dialog) -->
+    <div id="link-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2>Link einfügen</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <form id="link-insert-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="link-url">URL</label>
+          <input type="url" id="link-url" placeholder="https://beispiel.de" required>
+        </div>
+        <div class="form-group">
+          <label for="link-text">Link-Text (optional)</label>
+          <input type="text" id="link-text" placeholder="Beispiel-Webseite">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary close-modal-btn">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Einfügen</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal: Channel-Mitglieder anzeigen -->
+    <div id="members-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2 id="members-modal-title">Mitglieder in #general</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <ul id="members-list-view" class="member-detail-list">
+          <!-- Dynamically populated -->
+        </ul>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary close-modal-btn">Schließen</button>
+      </div>
+    </div>
+
+    <!-- Modal: Nachrichten-Suche -->
+    <div id="search-modal" class="modal-card glass">
+      <div class="modal-header">
+        <h2>Nachrichten durchsuchen</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <div class="search-input-wrapper">
+            <i data-lucide="search" class="search-icon"></i>
+            <input type="text" id="search-input" placeholder="Suchbegriff eingeben..." autocomplete="off">
+          </div>
+        </div>
+        <div id="search-results" class="search-results-container">
+          <!-- Results listed here -->
+          <div class="search-empty">Gib etwas ein, um nach Nachrichten zu suchen.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal: PDF-Vorschau -->
+    <div id="pdf-preview-modal" class="modal-card glass" style="width: 85%; max-width: 1000px; height: 85vh; max-height: 85vh;">
+      <div class="modal-header">
+        <h2 id="pdf-modal-title">PDF Vorschau</h2>
+        <button class="icon-btn close-modal-btn"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body" style="flex: 1; padding: 0; display: flex; flex-direction: column; overflow: hidden; background: #1f1d2c; max-height: unset; height: calc(100% - 69px);">
+        <iframe id="pdf-preview-iframe" src="" style="width: 100%; height: 100%; border: none;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- FLOATING CUSTOM EMOJI PICKER POPUP (REUSABLE FOR CHAT AND THREAD AND REACTIONS) -->
+  <div id="global-emoji-picker" class="emoji-picker-popup glass">
+    <div class="emoji-picker-search">
+      <input type="text" id="emoji-search-input" placeholder="Emoji suchen...">
+    </div>
+    <div class="emoji-picker-tabs">
+      <button class="emoji-tab-btn active" data-category="smileys" title="Smileys & Emotionen">😀</button>
+      <button class="emoji-tab-btn" data-category="nature" title="Tiere & Natur">🌲</button>
+      <button class="emoji-tab-btn" data-category="food" title="Essen & Trinken">🍕</button>
+      <button class="emoji-tab-btn" data-category="activities" title="Aktivitäten">⚽</button>
+      <button class="emoji-tab-btn" data-category="objects" title="Objekte">💡</button>
+      <button class="emoji-tab-btn" data-category="symbols" title="Symbole">❤️</button>
+    </div>
+    <div class="emoji-picker-grid" id="emoji-picker-grid">
+      <!-- Grid items generated by javascript -->
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER (FOR REMINDERS) -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>
