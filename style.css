@@ -2055,3 +2055,14 @@ body {
   text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
 }
 
+/* Spinner Animation for Loading States */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+

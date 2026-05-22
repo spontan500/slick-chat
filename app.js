@@ -8,9 +8,21 @@ const SUPABASE_URL = 'https://lqlmjsonaqvvtvhiizmj.supabase.co/rest/v1/';
 const SUPABASE_KEY = 'sb_publishable_pQeXJ9R1KbB7IiU8XFwWHA_sXm4CD7P';
 let supabase = null;
 
-if (SUPABASE_URL !== 'https://lqlmjsonaqvvtvhiizmj.supabase.co/rest/v1/' && SUPABASE_KEY !== 'sb_publishable_pQeXJ9R1KbB7IiU8XFwWHA_sXm4CD7P') {
+const isPlaceholderUrl = SUPABASE_URL.includes('your-project-id') || SUPABASE_URL === '';
+const isPlaceholderKey = SUPABASE_KEY === 'your-anon-key-here' || SUPABASE_KEY === '' || !SUPABASE_KEY.trim().startsWith('eyJ');
+
+if (!isPlaceholderUrl && !isPlaceholderKey) {
   try {
-    supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+    let cleanedUrl = SUPABASE_URL.trim();
+    if (cleanedUrl.endsWith('/rest/v1/')) {
+      cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 9);
+    } else if (cleanedUrl.endsWith('/rest/v1')) {
+      cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 8);
+    }
+    if (cleanedUrl.endsWith('/')) {
+      cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 1);
+    }
+    supabase = window.supabase.createClient(cleanedUrl, SUPABASE_KEY.trim());
   } catch (err) {
     console.error('Supabase-Verbindungsfehler:', err);
   }
@@ -301,12 +313,12 @@ function setupRealtimeSubscriptions() {
       if (payload.eventType === 'INSERT') {
         if (!state.messages.some(m => m.id === payload.new.id)) {
           state.messages.push(payload.new);
-          if (payload.new.userId === state.currentUser.id) {
+          if (state.currentUser && payload.new.userId === state.currentUser.id) {
             simulateReplies(payload.new);
-          } else if (payload.new.parentId && state.currentUser.id !== payload.new.userId) {
+          } else if (payload.new.parentId && state.currentUser && state.currentUser.id !== payload.new.userId) {
             // If reply posted inside active thread, or thread simulate is needed
             const parent = state.messages.find(m => m.id === payload.new.parentId);
-            if (parent && parent.userId === state.currentUser.id) {
+            if (parent && state.currentUser && parent.userId === state.currentUser.id) {
               simulateThreadReplies(payload.new);
             }
           }
@@ -317,7 +329,9 @@ function setupRealtimeSubscriptions() {
           state.messages[idx] = payload.new;
         }
       } else if (payload.eventType === 'DELETE') {
-        state.messages = state.messages.filter(m => m.id !== payload.old.id);
+        if (payload.old && payload.old.id) {
+          state.messages = state.messages.filter(m => m.id !== payload.old.id);
+        }
       }
 
       renderMessageFeed();
@@ -330,7 +344,7 @@ function setupRealtimeSubscriptions() {
       if (payload.eventType === 'INSERT') {
         if (!state.channels.some(c => c.id === payload.new.id)) {
           state.channels.push(payload.new);
-          if (payload.new.createdBy === state.currentUser.id) {
+          if (state.currentUser && payload.new.createdBy === state.currentUser.id) {
             switchChannel(payload.new.id);
           }
         }
@@ -340,7 +354,9 @@ function setupRealtimeSubscriptions() {
           state.channels[idx] = payload.new;
         }
       } else if (payload.eventType === 'DELETE') {
-        state.channels = state.channels.filter(c => c.id !== payload.old.id);
+        if (payload.old && payload.old.id) {
+          state.channels = state.channels.filter(c => c.id !== payload.old.id);
+        }
       }
 
       renderSidebar();
@@ -530,7 +546,12 @@ function showMainApp() {
   }
 
   // Default navigation channel
-  state.currentChannelId = 'chan_general';
+  if (state.channels && state.channels.length > 0) {
+    const defaultChan = state.channels.find(c => c.id === 'chan_general') || state.channels[0];
+    state.currentChannelId = defaultChan.id;
+  } else {
+    state.currentChannelId = 'chan_general';
+  }
 
   initUI();
 }
@@ -553,10 +574,10 @@ function renderSidebar() {
 
   // 1. Render channels
   state.channels.forEach(chan => {
-    const isUserMember = chan.members.includes(state.currentUser.id);
+    const isUserMember = state.currentUser && chan.members && chan.members.includes(state.currentUser.id);
     if (!isUserMember && chan.isPrivate) return; // Hide private channels the user isn't in
 
-    const hasUnread = state.messages.some(msg =>
+    const hasUnread = state.currentUser && state.messages.some(msg =>
       msg.channelId === chan.id &&
       !msg.parentId &&
       msg.unreadBy &&
@@ -575,10 +596,10 @@ function renderSidebar() {
 
   // 2. Render DMs (simulated by messaging mock users)
   Object.keys(MOCK_USERS).forEach(userId => {
-    if (userId === state.currentUser.id) return; // Skip self
+    if (state.currentUser && userId === state.currentUser.id) return; // Skip self
     const u = MOCK_USERS[userId];
 
-    const hasUnread = state.messages.some(msg =>
+    const hasUnread = state.currentUser && state.messages.some(msg =>
       msg.channelId === userId &&
       !msg.parentId &&
       msg.unreadBy &&
@@ -607,24 +628,29 @@ function renderSidebar() {
 function switchChannel(channelId) {
   state.currentChannelId = channelId;
   state.activeThreadParentId = null;
-  document.getElementById('thread-panel').classList.remove('active');
+  const threadPanelEl = document.getElementById('thread-panel');
+  if (threadPanelEl) {
+    threadPanelEl.classList.remove('active');
+  }
 
-  // Mark all messages in this channel/DM as read
-  if (supabase) {
-    const unreadMsgs = state.messages.filter(msg => msg.channelId === channelId && msg.unreadBy && msg.unreadBy.includes(state.currentUser.id));
-    unreadMsgs.forEach(msg => {
-      const updatedUnread = msg.unreadBy.filter(id => id !== state.currentUser.id);
-      supabase.from('messages').update({ unreadBy: updatedUnread }).eq('id', msg.id).then(({ error }) => {
-        if (error) console.error('Error updating read receipts in Supabase:', error);
+  if (state.currentUser) {
+    // Mark all messages in this channel/DM as read
+    if (supabase) {
+      const unreadMsgs = state.messages.filter(msg => msg.channelId === channelId && msg.unreadBy && msg.unreadBy.includes(state.currentUser.id));
+      unreadMsgs.forEach(msg => {
+        const updatedUnread = msg.unreadBy.filter(id => id !== state.currentUser.id);
+        supabase.from('messages').update({ unreadBy: updatedUnread }).eq('id', msg.id).then(({ error }) => {
+          if (error) console.error('Error updating read receipts in Supabase:', error);
+        });
       });
-    });
-  } else {
-    state.messages.forEach(msg => {
-      if (msg.channelId === channelId && msg.unreadBy) {
-        msg.unreadBy = msg.unreadBy.filter(id => id !== state.currentUser.id);
-      }
-    });
-    saveState('messages');
+    } else {
+      state.messages.forEach(msg => {
+        if (msg.channelId === channelId && msg.unreadBy) {
+          msg.unreadBy = msg.unreadBy.filter(id => id !== state.currentUser.id);
+        }
+      });
+      saveState('messages');
+    }
   }
 
   renderSidebar();
@@ -633,22 +659,35 @@ function switchChannel(channelId) {
 }
 
 function renderChatHeader() {
-  const isChan = state.currentChannelId.startsWith('chan_');
+  const isChan = state.currentChannelId && state.currentChannelId.startsWith('chan_');
   const inviteBtn = document.getElementById('invite-btn');
   const membersBtn = document.getElementById('channel-members-btn');
 
   if (isChan) {
     const chan = state.channels.find(c => c.id === state.currentChannelId);
-    chatTitleEl.textContent = `# ${chan.name}`;
-    chatDescEl.textContent = chan.description || 'Keine Beschreibung';
-    memberCountTextEl.textContent = `${chan.members.length} Mitglieder`;
-    inviteBtn.style.display = 'inline-flex';
-    membersBtn.style.display = 'inline-flex';
-  } else {
+    if (chan) {
+      chatTitleEl.textContent = `# ${chan.name}`;
+      chatDescEl.textContent = chan.description || 'Keine Beschreibung';
+      memberCountTextEl.textContent = `${chan.members.length} Mitglieder`;
+      inviteBtn.style.display = 'inline-flex';
+      membersBtn.style.display = 'inline-flex';
+    } else {
+      chatTitleEl.textContent = '# Kanal';
+      chatDescEl.textContent = 'Lädt...';
+      memberCountTextEl.textContent = '0 Mitglieder';
+      inviteBtn.style.display = 'none';
+      membersBtn.style.display = 'none';
+    }
+  } else if (state.currentChannelId) {
     // DM
     const u = getUser(state.currentChannelId);
     chatTitleEl.textContent = u.displayName;
     chatDescEl.textContent = `@${u.username} • ${u.role || 'Mitglied'}`;
+    inviteBtn.style.display = 'none';
+    membersBtn.style.display = 'none';
+  } else {
+    chatTitleEl.textContent = 'Willkommen bei Slick';
+    chatDescEl.textContent = 'Wähle einen Channel oder eine Direktnachricht aus';
     inviteBtn.style.display = 'none';
     membersBtn.style.display = 'none';
   }
@@ -933,12 +972,24 @@ function initUI() {
 
   // Textarea dynamic sizing
   const composerTextarea = document.getElementById('composer-textarea');
-  composerTextarea.placeholder = `Nachricht an ${state.currentChannelId.startsWith('chan_') ? '#' + state.channels.find(c => c.id === state.currentChannelId).name : getUser(state.currentChannelId).displayName} schreiben...`;
+  if (composerTextarea) {
+    let placeholderName = 'Kanal';
+    if (state.currentChannelId) {
+      if (state.currentChannelId.startsWith('chan_')) {
+        const chan = state.channels.find(c => c.id === state.currentChannelId);
+        placeholderName = chan ? '#' + chan.name : '#kanal';
+      } else {
+        const u = getUser(state.currentChannelId);
+        placeholderName = u ? u.displayName : 'Benutzer';
+      }
+    }
+    composerTextarea.placeholder = `Nachricht an ${placeholderName} schreiben...`;
 
-  composerTextarea.addEventListener('input', function () {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-  });
+    composerTextarea.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = (this.scrollHeight) + 'px';
+    });
+  }
 
   // Modal Setup Close Handlers
   document.querySelectorAll('.close-modal-btn').forEach(btn => {
@@ -1552,7 +1603,11 @@ window.openThread = function (messageId) {
   threadPanel.classList.add('active');
 
   const parentMsg = state.messages.find(m => m.id === messageId);
-  const chanName = state.currentChannelId.startsWith('chan_') ? '#' + state.channels.find(c => c.id === state.currentChannelId).name : 'Direktnachricht';
+  let chanName = 'Direktnachricht';
+  if (state.currentChannelId && state.currentChannelId.startsWith('chan_')) {
+    const chan = state.channels.find(c => c.id === state.currentChannelId);
+    chanName = chan ? '#' + chan.name : '#kanal';
+  }
   document.getElementById('thread-parent-channel').textContent = `in ${chanName}`;
 
   renderThread();
@@ -1638,12 +1693,15 @@ threadForm.addEventListener('submit', async () => {
 function simulateThreadReplies(userReply) {
   // If communicating in a channel or DM, choose mock bots to respond inside the thread
   const parent = state.messages.find(m => m.id === userReply.parentId);
-  const isChan = parent.channelId.startsWith('chan_');
+  if (!parent) return;
+  const isChan = parent.channelId && parent.channelId.startsWith('chan_');
   let potentialBotUsers = [];
 
   if (isChan) {
     const chan = state.channels.find(c => c.id === parent.channelId);
-    potentialBotUsers = chan.members.filter(id => id !== state.currentUser.id && MOCK_USERS[id] && MOCK_USERS[id].isMock);
+    if (chan) {
+      potentialBotUsers = chan.members.filter(id => id !== state.currentUser.id && MOCK_USERS[id] && MOCK_USERS[id].isMock);
+    }
   } else {
     const bot = MOCK_USERS[parent.channelId];
     if (bot && bot.isMock) potentialBotUsers = [bot.id];
@@ -2216,10 +2274,10 @@ searchInput.addEventListener('input', (e) => {
     div.className = 'search-result-item';
 
     let contextStr = '';
-    if (msg.channelId.startsWith('chan_')) {
+    if (msg.channelId && msg.channelId.startsWith('chan_')) {
       const chan = state.channels.find(c => c.id === msg.channelId);
       contextStr = `#${chan ? chan.name : 'channel'}`;
-    } else {
+    } else if (msg.channelId) {
       contextStr = `DM mit ${getUser(msg.channelId).displayName}`;
     }
 
@@ -2305,8 +2363,26 @@ document.addEventListener('keydown', (e) => {
 // APPLICATION INITIALIZATION ENTRYPOINT
 // ==========================================================================
 
-window.addEventListener('DOMContentLoaded', () => {
-  loadState();
+window.addEventListener('DOMContentLoaded', async () => {
+  // Show visual loading spinner on button and disable it during initial loading
+  const authSubmitBtn = document.getElementById('auth-submit-btn');
+  let originalBtnContent = '';
+  if (authSubmitBtn) {
+    originalBtnContent = authSubmitBtn.innerHTML;
+    authSubmitBtn.disabled = true;
+    authSubmitBtn.innerHTML = `<span>Lade Slick...</span><i data-lucide="loader" class="animate-spin" style="margin-left:8px; width:16px; height:16px;"></i>`;
+    lucide.createIcons();
+  }
+
+  // Wait for application state and database queries to finish loading
+  await loadState();
+
+  // Restore button status
+  if (authSubmitBtn) {
+    authSubmitBtn.disabled = false;
+    authSubmitBtn.innerHTML = originalBtnContent;
+    lucide.createIcons();
+  }
 
   if (state.currentUser) {
     showMainApp();
