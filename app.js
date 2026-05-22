@@ -2,10 +2,8 @@
    SLICK CHAT APPLICATION - STATE & LOGIC
    ========================================================================== */
 
-// --- SUPABASE CONFIGURATION ---
-// Replace these placeholders with your actual Supabase URL and Anon Key!
-const SUPABASE_URL = 'https://lqlmjsonaqvvtvhiizmj.supabase.co/rest/v1/';
-const SUPABASE_KEY = 'sb_publishable_pQeXJ9R1KbB7IiU8XFwWHA_sXm4CD7P';
+const SUPABASE_URL = 'https://lqlmjsonaqvvtvhiizmj.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxbG1qc29uYXF2dnR2aGlpem1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MzMwMjcsImV4cCI6MjA5NTAwOTAyN30.gkC3j6aY1M0ulpa6jolJiXewtX46aLVhlnxKoIM5BYc';
 let supabase = null;
 
 const isPlaceholderUrl = SUPABASE_URL.includes('your-project-id') || SUPABASE_URL === '';
