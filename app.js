@@ -264,8 +264,14 @@ async function loadState() {
           }
         ];
 
-        await supabase.from('channels').insert(defaultChannels);
-        await supabase.from('messages').insert(defaultMessages);
+        const { error: insertChanErr } = await supabase.from('channels').insert(defaultChannels);
+        if (insertChanErr) {
+          console.error('Fehler beim Initialisieren der Standardkanäle auf Supabase:', insertChanErr);
+        }
+        const { error: insertMsgErr } = await supabase.from('messages').insert(defaultMessages);
+        if (insertMsgErr) {
+          console.error('Fehler beim Initialisieren der Standardnachrichten auf Supabase:', insertMsgErr);
+        }
 
         dbChannels = defaultChannels;
       }
@@ -332,6 +338,7 @@ function setupRealtimeSubscriptions() {
         }
       }
 
+      if (!state.currentUser) return;
       renderMessageFeed();
       renderSidebar();
       if (state.activeThreadParentId) {
@@ -357,6 +364,7 @@ function setupRealtimeSubscriptions() {
         }
       }
 
+      if (!state.currentUser) return;
       renderSidebar();
       renderChatHeader();
     })
@@ -374,6 +382,7 @@ function setupRealtimeSubscriptions() {
         state.reminders = state.reminders.filter(r => r.id !== payload.old.id);
       }
 
+      if (!state.currentUser) return;
       renderSidebar();
       renderMessageFeed();
     })
@@ -450,7 +459,8 @@ customAvatarFile.addEventListener('change', (e) => {
   }
 });
 
-authForm.addEventListener('submit', () => {
+authForm.addEventListener('submit', (e) => {
+  e.preventDefault();
   const usernameVal = document.getElementById('username').value.trim().toLowerCase();
   const displayNameVal = document.getElementById('display-name').value.trim();
   const selectedAvatar = document.querySelector('input[name="avatar"]:checked').value;
@@ -567,6 +577,7 @@ const memberCountTextEl = document.getElementById('member-count-text');
 
 // Re-render sidebar listings
 function renderSidebar() {
+  if (!state.currentUser) return;
   channelsListEl.innerHTML = '';
   dmsListEl.innerHTML = '';
 
@@ -657,6 +668,7 @@ function switchChannel(channelId) {
 }
 
 function renderChatHeader() {
+  if (!state.currentUser) return;
   const isChan = state.currentChannelId && state.currentChannelId.startsWith('chan_');
   const inviteBtn = document.getElementById('invite-btn');
   const membersBtn = document.getElementById('channel-members-btn');
@@ -693,8 +705,9 @@ function renderChatHeader() {
 
 // Render the message feed for active Channel/DM
 function renderMessageFeed() {
+  if (!state.currentUser) return;
   messageFeedEl.innerHTML = '';
-  const isChan = state.currentChannelId.startsWith('chan_');
+  const isChan = state.currentChannelId && state.currentChannelId.startsWith('chan_');
 
   // Filter messages for current channel/DM (parent messages only)
   const currentMessages = state.messages.filter(msg =>
@@ -1941,6 +1954,7 @@ window.viewReminderMessage = function (channelId, messageId, btn) {
 };
 
 function renderRemindersList() {
+  if (!state.currentUser) return;
   const listEl = document.getElementById('reminders-list');
   const countBadge = document.getElementById('reminders-count-badge');
   listEl.innerHTML = '';
