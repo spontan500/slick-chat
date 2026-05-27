@@ -701,6 +701,12 @@ function switchChannel(channelId) {
   renderSidebar();
   renderChatHeader();
   renderMessageFeed();
+
+  // Close mobile sidebar if open
+  const sidebarEl = document.querySelector('.sidebar');
+  const sidebarOverlayEl = document.getElementById('sidebar-overlay');
+  if (sidebarEl) sidebarEl.classList.remove('active');
+  if (sidebarOverlayEl) sidebarOverlayEl.classList.remove('active');
 }
 
 function renderChatHeader() {
@@ -2437,6 +2443,23 @@ window.addEventListener('DOMContentLoaded', async () => {
   } else {
     // Show auth overlay screen
     authScreen.classList.add('active');
+  }
+
+  // Mobile sidebar toggle handling
+  const sidebarEl = document.querySelector('.sidebar');
+  const sidebarOverlayEl = document.getElementById('sidebar-overlay');
+  const sidebarToggleBtn = document.getElementById('sidebar-toggle-btn');
+
+  if (sidebarToggleBtn && sidebarEl && sidebarOverlayEl) {
+    sidebarToggleBtn.addEventListener('click', () => {
+      sidebarEl.classList.add('active');
+      sidebarOverlayEl.classList.add('active');
+    });
+
+    sidebarOverlayEl.addEventListener('click', () => {
+      sidebarEl.classList.remove('active');
+      sidebarOverlayEl.classList.remove('active');
+    });
   }
 
   // Pre-load SVG icons globally

@@ -13,7 +13,7 @@
   <!-- Supabase JS Library -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Core Stylesheets -->
-  <link rel="stylesheet" href="style.css?v=1.0.2">
+  <link rel="stylesheet" href="style.css?v=1.0.3">
 </head>
 <body>
 
@@ -125,10 +125,16 @@
       </div>
     </aside>
 
+    <!-- SIDEBAR BACKDROP OVERLAY FOR MOBILE -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
     <!-- CHAT AREA -->
     <main class="chat-container">
       <!-- Chat Header -->
       <header class="chat-header glass">
+        <button id="sidebar-toggle-btn" class="icon-btn sidebar-toggle-btn" title="Menü öffnen">
+          <i data-lucide="menu"></i>
+        </button>
         <div class="channel-info">
           <h2 id="active-chat-title">#general</h2>
           <span id="active-chat-description" class="description">Standard-Channel für alle</span>
@@ -407,6 +413,6 @@
   <div id="toast-container" class="toast-container"></div>
 
   <!-- Scripts -->
-  <script src="app.js?v=1.0.2"></script>
+  <script src="app.js?v=1.0.3"></script>
 </body>
 </html>
