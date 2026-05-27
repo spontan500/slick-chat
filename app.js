@@ -276,7 +276,10 @@ async function loadState() {
         dbChannels = defaultChannels;
       }
 
-      state.channels = dbChannels;
+      state.channels = (dbChannels || []).map(c => ({
+        ...c,
+        members: Array.isArray(c.members) ? c.members : []
+      }));
 
       // Fetch Messages
       let { data: dbMessages, error: msgError } = await supabase.from('messages').select('*');
@@ -304,8 +307,12 @@ function loadLocalStorageFallback() {
   if (!localStorage.getItem('slick_channels')) {
     initializeDefaultData();
   }
-  state.channels = JSON.parse(localStorage.getItem('slick_channels'));
-  state.messages = JSON.parse(localStorage.getItem('slick_messages'));
+  const stored = JSON.parse(localStorage.getItem('slick_channels'));
+  state.channels = (stored || []).map(c => ({
+    ...c,
+    members: Array.isArray(c.members) ? c.members : []
+  }));
+  state.messages = JSON.parse(localStorage.getItem('slick_messages')) || [];
   state.reminders = JSON.parse(localStorage.getItem('slick_reminders')) || [];
 }
 
@@ -348,7 +355,11 @@ function setupRealtimeSubscriptions() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, payload => {
       if (payload.eventType === 'INSERT') {
         if (!state.channels.some(c => c.id === payload.new.id)) {
-          state.channels.push(payload.new);
+          const newChan = {
+            ...payload.new,
+            members: Array.isArray(payload.new.members) ? payload.new.members : []
+          };
+          state.channels.push(newChan);
           if (state.currentUser && payload.new.createdBy === state.currentUser.id) {
             switchChannel(payload.new.id);
           }
@@ -356,7 +367,10 @@ function setupRealtimeSubscriptions() {
       } else if (payload.eventType === 'UPDATE') {
         const idx = state.channels.findIndex(c => c.id === payload.new.id);
         if (idx > -1) {
-          state.channels[idx] = payload.new;
+          state.channels[idx] = {
+            ...payload.new,
+            members: Array.isArray(payload.new.members) ? payload.new.members : []
+          };
         }
       } else if (payload.eventType === 'DELETE') {
         if (payload.old && payload.old.id) {
@@ -493,6 +507,9 @@ authForm.addEventListener('submit', (e) => {
   const updatePromises = [];
   state.channels.forEach(chan => {
     if (chan.id === 'chan_general' || chan.id === 'chan_random') {
+      if (!chan.members) {
+        chan.members = [];
+      }
       if (!chan.members.includes(state.currentUser.id)) {
         chan.members.push(state.currentUser.id);
         if (supabase) {
