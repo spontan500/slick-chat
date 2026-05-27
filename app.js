@@ -196,109 +196,127 @@ function initializeDefaultData() {
 
 // 5. Load State from Supabase / LocalStorage
 async function loadState() {
-  const storedUser = localStorage.getItem('slick_current_user');
-  if (storedUser) {
-    state.currentUser = JSON.parse(storedUser);
-    MOCK_USERS[state.currentUser.id] = state.currentUser;
-  }
-
-  if (supabase) {
-    try {
-      // Fetch Channels
-      let { data: dbChannels, error: chanError } = await supabase.from('channels').select('*');
-      if (chanError) throw chanError;
-
-      // If Supabase channels are empty, initialize default data in the cloud!
-      if (!dbChannels || dbChannels.length === 0) {
-        const defaultChannels = [
-          { id: 'chan_general', name: 'general', description: 'Standard-Channel für alle Ankündigungen', isPrivate: false, createdBy: 'system', members: ['user_alice', 'user_bob', 'user_charlie', 'user_diana', 'user_ethan'] },
-          { id: 'chan_random', name: 'random', description: 'Lustige Sachen, Memes und Offtopic', isPrivate: false, createdBy: 'system', members: ['user_alice', 'user_bob', 'user_charlie'] },
-          { id: 'chan_development', name: 'development', description: 'Tech-Diskussionen & Code Reviews', isPrivate: false, createdBy: 'system', members: ['user_bob', 'user_ethan'] }
-        ];
-
-        const defaultMessages = [
-          {
-            id: 'msg_1',
-            channelId: 'chan_general',
-            userId: 'user_charlie',
-            text: 'Willkommen im Slick Workspace! Schön, dass ihr alle da seid. 👋',
-            timestamp: Date.now() - 3600000 * 4,
-            attachments: [],
-            reactions: { '👋': ['user_alice', 'user_bob'] },
-            unreadBy: [],
-            parentId: null
-          },
-          {
-            id: 'msg_2',
-            channelId: 'chan_general',
-            userId: 'user_alice',
-            text: 'Hallo zusammen! Ich habe das neue UI-Konzept fertiggestellt. Ihr könnt euch die Entwürfe gerne hier ansehen: https://unsplash.com/ - Feedback ist sehr willkommen! 😊',
-            timestamp: Date.now() - 3600000 * 3,
-            attachments: [],
-            linkPreview: {
-              url: 'https://unsplash.com/',
-              title: 'Beautiful Free Images & Pictures | Unsplash',
-              description: 'Beautiful, free images and photos that you can download and use for any project. Better than any royalty free or stock photos.',
-              image: 'https://images.unsplash.com/photo-1504297050568-910d24c426d3?w=120&auto=format&fit=crop&q=60'
-            },
-            reactions: { '🔥': ['user_bob', 'user_charlie'], '😍': ['user_bob'] },
-            unreadBy: [],
-            parentId: null
-          },
-          {
-            id: 'msg_3',
-            channelId: 'chan_development',
-            userId: 'user_bob',
-            text: 'Habe gerade den Bug im Authentifizierungsflow gefixt. Pull Request ist auf GitHub offen: https://github.com/google/jax',
-            timestamp: Date.now() - 3600000 * 2,
-            attachments: [],
-            linkPreview: {
-              url: 'https://github.com/google/jax',
-              title: 'Google JAX on GitHub',
-              description: 'Composable transformations of Python+NumPy programs: differentiate, vectorize, JIT-compile to GPU/TPU, and more.',
-              image: 'https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=120&auto=format&fit=crop&q=60'
-            },
-            reactions: { '🚀': ['user_ethan'], '✅': ['user_ethan'] },
-            unreadBy: [],
-            parentId: null
-          }
-        ];
-
-        const { error: insertChanErr } = await supabase.from('channels').insert(defaultChannels);
-        if (insertChanErr) {
-          console.error('Fehler beim Initialisieren der Standardkanäle auf Supabase:', insertChanErr);
+  try {
+    const storedUser = localStorage.getItem('slick_current_user');
+    if (storedUser) {
+      try {
+        state.currentUser = JSON.parse(storedUser);
+        if (state.currentUser && state.currentUser.id) {
+          MOCK_USERS[state.currentUser.id] = state.currentUser;
+        } else {
+          state.currentUser = null;
         }
-        const { error: insertMsgErr } = await supabase.from('messages').insert(defaultMessages);
-        if (insertMsgErr) {
-          console.error('Fehler beim Initialisieren der Standardnachrichten auf Supabase:', insertMsgErr);
-        }
-
-        dbChannels = defaultChannels;
+      } catch (pe) {
+        console.warn('Failed to parse current user from localStorage:', pe);
+        state.currentUser = null;
       }
+    }
 
-      state.channels = (dbChannels || []).map(c => ({
-        ...c,
-        members: Array.isArray(c.members) ? c.members : []
-      }));
+    if (supabase) {
+      try {
+        // Fetch Channels
+        let { data: dbChannels, error: chanError } = await supabase.from('channels').select('*');
+        if (chanError) throw chanError;
 
-      // Fetch Messages
-      let { data: dbMessages, error: msgError } = await supabase.from('messages').select('*');
-      if (msgError) throw msgError;
-      state.messages = dbMessages || [];
+        // If Supabase channels are empty, initialize default data in the cloud!
+        if (!dbChannels || dbChannels.length === 0) {
+          const defaultChannels = [
+            { id: 'chan_general', name: 'general', description: 'Standard-Channel für alle Ankündigungen', isPrivate: false, createdBy: 'system', members: ['user_alice', 'user_bob', 'user_charlie', 'user_diana', 'user_ethan'] },
+            { id: 'chan_random', name: 'random', description: 'Lustige Sachen, Memes und Offtopic', isPrivate: false, createdBy: 'system', members: ['user_alice', 'user_bob', 'user_charlie'] },
+            { id: 'chan_development', name: 'development', description: 'Tech-Diskussionen & Code Reviews', isPrivate: false, createdBy: 'system', members: ['user_bob', 'user_ethan'] }
+          ];
 
-      // Fetch Reminders
-      let { data: dbReminders, error: remError } = await supabase.from('reminders').select('*');
-      if (remError) throw remError;
-      state.reminders = dbReminders || [];
+          const defaultMessages = [
+            {
+              id: 'msg_1',
+              channelId: 'chan_general',
+              userId: 'user_charlie',
+              text: 'Willkommen im Slick Workspace! Schön, dass ihr alle da seid. 👋',
+              timestamp: Date.now() - 3600000 * 4,
+              attachments: [],
+              reactions: { '👋': ['user_alice', 'user_bob'] },
+              unreadBy: [],
+              parentId: null
+            },
+            {
+              id: 'msg_2',
+              channelId: 'chan_general',
+              userId: 'user_alice',
+              text: 'Hallo zusammen! Ich habe das neue UI-Konzept fertiggestellt. Ihr könnt euch die Entwürfe gerne hier ansehen: https://unsplash.com/ - Feedback ist sehr willkommen! 😊',
+              timestamp: Date.now() - 3600000 * 3,
+              attachments: [],
+              linkPreview: {
+                url: 'https://unsplash.com/',
+                title: 'Beautiful Free Images & Pictures | Unsplash',
+                description: 'Beautiful, free images and photos that you can download and use for any project. Better than any royalty free or stock photos.',
+                image: 'https://images.unsplash.com/photo-1504297050568-910d24c426d3?w=120&auto=format&fit=crop&q=60'
+              },
+              reactions: { '🔥': ['user_bob', 'user_charlie'], '😍': ['user_bob'] },
+              unreadBy: [],
+              parentId: null
+            },
+            {
+              id: 'msg_3',
+              channelId: 'chan_development',
+              userId: 'user_bob',
+              text: 'Habe gerade den Bug im Authentifizierungsflow gefixt. Pull Request ist auf GitHub offen: https://github.com/google/jax',
+              timestamp: Date.now() - 3600000 * 2,
+              attachments: [],
+              linkPreview: {
+                url: 'https://github.com/google/jax',
+                title: 'Google JAX on GitHub',
+                description: 'Composable transformations of Python+NumPy programs: differentiate, vectorize, JIT-compile to GPU/TPU, and more.',
+                image: 'https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=120&auto=format&fit=crop&q=60'
+              },
+              reactions: { '🚀': ['user_ethan'], '✅': ['user_ethan'] },
+              unreadBy: [],
+              parentId: null
+            }
+          ];
 
-      // Hook up Real-time Synced Listeners
-      setupRealtimeSubscriptions();
+          const { error: insertChanErr } = await supabase.from('channels').insert(defaultChannels);
+          if (insertChanErr) {
+            console.error('Fehler beim Initialisieren der Standardkanäle auf Supabase:', insertChanErr);
+          }
+          const { error: insertMsgErr } = await supabase.from('messages').insert(defaultMessages);
+          if (insertMsgErr) {
+            console.error('Fehler beim Initialisieren der Standardnachrichten auf Supabase:', insertMsgErr);
+          }
 
-    } catch (err) {
-      console.error('Supabase Daten-Ladefehler. Fallback auf LocalStorage:', err);
+          dbChannels = defaultChannels;
+        }
+
+        state.channels = (dbChannels || []).map(c => ({
+          ...c,
+          members: Array.isArray(c.members) ? c.members : []
+        }));
+
+        // Fetch Messages
+        let { data: dbMessages, error: msgError } = await supabase.from('messages').select('*');
+        if (msgError) throw msgError;
+        state.messages = dbMessages || [];
+
+        // Fetch Reminders
+        let { data: dbReminders, error: remError } = await supabase.from('reminders').select('*');
+        if (remError) throw remError;
+        state.reminders = dbReminders || [];
+
+        // Hook up Real-time Synced Listeners
+        setupRealtimeSubscriptions();
+
+      } catch (err) {
+        console.error('Supabase Daten-Ladefehler. Fallback auf LocalStorage:', err);
+        loadLocalStorageFallback();
+      }
+    } else {
       loadLocalStorageFallback();
     }
-  } else {
+  } catch (globalErr) {
+    console.error('Kritischer Fehler beim Laden des Anwendungsstatus:', globalErr);
+    // Absolute fallback to fresh mock data to prevent blocking login
+    state.channels = [];
+    state.messages = [];
+    state.reminders = [];
     loadLocalStorageFallback();
   }
 }
