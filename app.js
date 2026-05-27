@@ -426,73 +426,75 @@ function getUser(userId) {
 const authScreen = document.getElementById('auth-screen');
 const appScreen = document.getElementById('app-screen');
 const authForm = document.getElementById('auth-form');
-const avatarRadios = document.querySelectorAll('input[name="avatar"]');
-const customAvatarFile = document.getElementById('custom-avatar-file');
-const customAvatarRadio = document.getElementById('custom-avatar-radio');
-const customAvatarPreview = document.getElementById('custom-avatar-preview');
-const uploadIconContainer = document.querySelector('.upload-icon-container');
-
-// Manage profile picture uploading in Login Modal
-avatarRadios.forEach(radio => {
-  radio.addEventListener('change', (e) => {
-    // Unselect other visually
-    document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
-    radio.closest('.avatar-option').classList.add('selected');
-
-    if (e.target.value === 'custom') {
-      customAvatarFile.click();
-    }
-  });
-});
-
-customAvatarFile.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = function (evt) {
-      customAvatarPreview.src = evt.target.result;
-      customAvatarPreview.style.display = 'block';
-      uploadIconContainer.style.display = 'none';
-      customAvatarRadio.value = evt.target.result; // Set data-url as value
-    };
-    reader.readAsDataURL(file);
+// Pre-defined users mapped to their email address
+const STATIC_USERS = {
+  'res@finger.ch': {
+    id: 'user_res_finger_ch',
+    username: 'res_finger_ch',
+    displayName: 'Res Finger',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
+    status: 'online',
+    isMock: false
+  },
+  'res,finger@gmail.com': {
+    id: 'user_res_finger_gmail',
+    username: 'res_finger_gmail',
+    displayName: 'Res Finger (GMail)',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Marie',
+    status: 'online',
+    isMock: false
+  },
+  'res.finger@gmail.com': {
+    id: 'user_res_finger_gmail',
+    username: 'res_finger_gmail',
+    displayName: 'Res Finger (GMail)',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Marie',
+    status: 'online',
+    isMock: false
+  },
+  'fingerres@gmail.com': {
+    id: 'user_fingerres_gmail',
+    username: 'fingerres',
+    displayName: 'Finger Res',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Lukas',
+    status: 'online',
+    isMock: false
   }
-});
+};
+
+const loginErrorEl = document.getElementById('login-error');
 
 authForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  const usernameVal = document.getElementById('username').value.trim().toLowerCase();
-  const displayNameVal = document.getElementById('display-name').value.trim();
-  const selectedAvatar = document.querySelector('input[name="avatar"]:checked').value;
-
-  let avatarUrl = '';
-  if (selectedAvatar.startsWith('data:image')) {
-    avatarUrl = selectedAvatar; // Custom image
-  } else {
-    // Dicebear presets
-    const seeds = { avatar1: 'Felix', avatar2: 'Marie', avatar3: 'Lukas', avatar4: 'Sophie' };
-    avatarUrl = `https://api.dicebear.com/7.x/bottts/svg?seed=${seeds[selectedAvatar] || 'User'}`;
+  
+  if (loginErrorEl) {
+    loginErrorEl.style.display = 'none';
   }
 
-  const userId = 'user_' + Date.now();
-  state.currentUser = {
-    id: userId,
-    username: usernameVal,
-    displayName: displayNameVal,
-    avatar: avatarUrl,
-    status: 'online',
-    isMock: false
-  };
+  const emailVal = document.getElementById('email').value.trim().toLowerCase();
+  const passwordVal = document.getElementById('password').value;
 
+  // Validate password and email match
+  if (passwordVal !== '123456' || !STATIC_USERS[emailVal]) {
+    if (loginErrorEl) {
+      loginErrorEl.style.display = 'block';
+    }
+    return;
+  }
+
+  // Load mapped user profile
+  const selectedUser = STATIC_USERS[emailVal];
+  
+  state.currentUser = { ...selectedUser };
   saveState('currentUser');
-  MOCK_USERS[userId] = state.currentUser;
+  MOCK_USERS[state.currentUser.id] = state.currentUser;
 
   // Add user to existing general channel
   const updatePromises = [];
   state.channels.forEach(chan => {
     if (chan.id === 'chan_general' || chan.id === 'chan_random') {
-      if (!chan.members.includes(userId)) {
-        chan.members.push(userId);
+      if (!chan.members.includes(state.currentUser.id)) {
+        chan.members.push(state.currentUser.id);
         if (supabase) {
           updatePromises.push(
             supabase.from('channels').update({ members: chan.members }).eq('id', chan.id)
@@ -524,10 +526,9 @@ document.getElementById('logout-btn').addEventListener('click', () => {
   authScreen.classList.add('active');
   authScreen.style.display = 'flex';
   authForm.reset();
-  customAvatarPreview.style.display = 'none';
-  uploadIconContainer.style.display = 'flex';
-  document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
-  document.querySelector('.avatar-option').classList.add('selected');
+  if (loginErrorEl) {
+    loginErrorEl.style.display = 'none';
+  }
 });
 
 function showMainApp() {

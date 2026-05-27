@@ -35,47 +35,20 @@
 
       <form id="auth-form" onsubmit="return false;">
         <div class="form-group">
-          <label for="username">Benutzername</label>
-          <input type="text" id="username" placeholder="z.B. max_mustermann" required autocomplete="username">
+          <label for="email">E-Mail-Adresse</label>
+          <input type="email" id="email" placeholder="z.B. res@finger.ch" required autocomplete="email">
         </div>
         <div class="form-group">
-          <label for="display-name">Anzeigename</label>
-          <input type="text" id="display-name" placeholder="z.B. Max Mustermann" required>
+          <label for="password">Passwort</label>
+          <input type="password" id="password" placeholder="••••••" required autocomplete="current-password">
         </div>
-        
-        <div class="form-group">
-          <label>Profilbild auswählen</label>
-          <div class="avatar-selection-grid">
-            <label class="avatar-option selected">
-              <input type="radio" name="avatar" value="avatar1" checked>
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Felix" alt="Avatar 1">
-            </label>
-            <label class="avatar-option">
-              <input type="radio" name="avatar" value="avatar2">
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Marie" alt="Avatar 2">
-            </label>
-            <label class="avatar-option">
-              <input type="radio" name="avatar" value="avatar3">
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Lukas" alt="Avatar 3">
-            </label>
-            <label class="avatar-option">
-              <input type="radio" name="avatar" value="avatar4">
-              <img src="https://api.dicebear.com/7.x/bottts/svg?seed=Sophie" alt="Avatar 4">
-            </label>
-            <label class="avatar-option custom-avatar-upload">
-              <input type="radio" name="avatar" value="custom" id="custom-avatar-radio">
-              <div class="upload-icon-container">
-                <i data-lucide="upload-cloud"></i>
-                <span>Eigenes</span>
-              </div>
-              <input type="file" id="custom-avatar-file" accept="image/*" style="display:none">
-              <img id="custom-avatar-preview" src="" alt="Custom Avatar Preview" style="display:none">
-            </label>
-          </div>
+
+        <div id="login-error" class="login-error-msg">
+          Ungültige E-Mail-Adresse oder Passwort!
         </div>
 
         <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-block">
-          <span>Konto erstellen / Einloggen</span>
+          <span>Einloggen</span>
           <i data-lucide="arrow-right"></i>
         </button>
       </form>
