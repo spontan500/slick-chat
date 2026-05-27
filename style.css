@@ -63,12 +63,27 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
 body {
   background-color: var(--bg-space);
   color: var(--text-main);
-  height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
   overflow: hidden;
-  position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -748,6 +763,7 @@ body {
 .message-card .msg-content-wrapper {
   flex: 1;
   min-width: 0;
+  padding-right: 16px;
 }
 
 .message-card .msg-header {
@@ -2058,7 +2074,7 @@ body {
   }
   .app-layout {
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     overflow: hidden;
   }
   .sidebar {

@@ -491,6 +491,14 @@ const STATIC_USERS = {
     avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Lukas',
     status: 'online',
     isMock: false
+  },
+  'hans@fritz.ch': {
+    id: 'user_hans_fritz',
+    username: 'hans_fritz',
+    displayName: 'Hans Fritz',
+    avatar: 'https://api.dicebear.com/7.x/bottts/svg?seed=Hans',
+    status: 'online',
+    isMock: false
   }
 };
 
@@ -1203,7 +1211,11 @@ window.removeDraftAttachment = function (idx) {
 function detectURL(text) {
   const urlPattern = /(https?:\/\/[^\s]+)/g;
   const match = text.match(urlPattern);
-  return match ? match[0] : null;
+  if (!match) return null;
+  let url = match[0];
+  // Remove trailing punctuation like .,),!,?,etc.
+  url = url.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]+$/, "");
+  return url;
 }
 
 // Generate beautiful offline previews for links
@@ -1247,7 +1259,12 @@ function generateLinkPreview(url) {
     };
   } else {
     // Default placeholder card
-    const domain = new URL(url).hostname;
+    let domain = 'Webseite';
+    try {
+      domain = new URL(url).hostname;
+    } catch (e) {
+      console.warn("Invalid URL in link preview generation", e);
+    }
     return {
       url,
       title: `Webseite-Vorschau für ${domain}`,
@@ -1710,6 +1727,8 @@ threadForm.addEventListener('submit', async () => {
 
   const msgId = 'msg_' + Date.now();
   const parentMsg = state.messages.find(m => m.id === state.activeThreadParentId);
+  const url = detectURL(text);
+  const preview = url ? generateLinkPreview(url) : null;
 
   const replyMsg = {
     id: msgId,
@@ -1718,6 +1737,7 @@ threadForm.addEventListener('submit', async () => {
     text: text,
     timestamp: Date.now(),
     attachments: [],
+    linkPreview: preview,
     reactions: {},
     parentId: state.activeThreadParentId
   };
