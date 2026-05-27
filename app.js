@@ -4,7 +4,7 @@
 
 const SUPABASE_URL = 'https://lqlmjsonaqvvtvhiizmj.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxbG1qc29uYXF2dnR2aGlpem1qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0MzMwMjcsImV4cCI6MjA5NTAwOTAyN30.gkC3j6aY1M0ulpa6jolJiXewtX46aLVhlnxKoIM5BYc';
-let supabase = null;
+let supabaseClient = null;
 
 const isPlaceholderUrl = SUPABASE_URL.includes('your-project-id') || SUPABASE_URL === '';
 const isPlaceholderKey = SUPABASE_KEY === 'your-anon-key-here' || SUPABASE_KEY === '' || !SUPABASE_KEY.trim().startsWith('eyJ');
@@ -20,7 +20,7 @@ if (!isPlaceholderUrl && !isPlaceholderKey) {
     if (cleanedUrl.endsWith('/')) {
       cleanedUrl = cleanedUrl.substring(0, cleanedUrl.length - 1);
     }
-    supabase = window.supabase.createClient(cleanedUrl, SUPABASE_KEY.trim());
+    supabaseClient = window.supabase.createClient(cleanedUrl, SUPABASE_KEY.trim());
   } catch (err) {
     console.error('Supabase-Verbindungsfehler:', err);
   }
@@ -212,10 +212,10 @@ async function loadState() {
       }
     }
 
-    if (supabase) {
+    if (supabaseClient) {
       try {
         // Fetch Channels
-        let { data: dbChannels, error: chanError } = await supabase.from('channels').select('*');
+        let { data: dbChannels, error: chanError } = await supabaseClient.from('channels').select('*');
         if (chanError) throw chanError;
 
         // If Supabase channels are empty, initialize default data in the cloud!
@@ -274,11 +274,11 @@ async function loadState() {
             }
           ];
 
-          const { error: insertChanErr } = await supabase.from('channels').insert(defaultChannels);
+          const { error: insertChanErr } = await supabaseClient.from('channels').insert(defaultChannels);
           if (insertChanErr) {
             console.error('Fehler beim Initialisieren der Standardkanäle auf Supabase:', insertChanErr);
           }
-          const { error: insertMsgErr } = await supabase.from('messages').insert(defaultMessages);
+          const { error: insertMsgErr } = await supabaseClient.from('messages').insert(defaultMessages);
           if (insertMsgErr) {
             console.error('Fehler beim Initialisieren der Standardnachrichten auf Supabase:', insertMsgErr);
           }
@@ -292,12 +292,12 @@ async function loadState() {
         }));
 
         // Fetch Messages
-        let { data: dbMessages, error: msgError } = await supabase.from('messages').select('*');
+        let { data: dbMessages, error: msgError } = await supabaseClient.from('messages').select('*');
         if (msgError) throw msgError;
         state.messages = dbMessages || [];
 
         // Fetch Reminders
-        let { data: dbReminders, error: remError } = await supabase.from('reminders').select('*');
+        let { data: dbReminders, error: remError } = await supabaseClient.from('reminders').select('*');
         if (remError) throw remError;
         state.reminders = dbReminders || [];
 
@@ -336,7 +336,7 @@ function loadLocalStorageFallback() {
 
 // Set up real-time subscriptions with Supabase
 function setupRealtimeSubscriptions() {
-  supabase
+  supabaseClient
     .channel('slick-db-sync')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'messages' }, payload => {
       if (payload.eventType === 'INSERT') {
@@ -426,7 +426,7 @@ function saveState(field) {
   if (field === 'currentUser' || !field) {
     localStorage.setItem('slick_current_user', JSON.stringify(state.currentUser));
   }
-  if (!supabase) {
+  if (!supabaseClient) {
     // Only save fallback arrays to localStorage if in Sandbox mode
     if (field === 'channels' || !field) {
       localStorage.setItem('slick_channels', JSON.stringify(state.channels));
@@ -530,16 +530,16 @@ authForm.addEventListener('submit', (e) => {
       }
       if (!chan.members.includes(state.currentUser.id)) {
         chan.members.push(state.currentUser.id);
-        if (supabase) {
+        if (supabaseClient) {
           updatePromises.push(
-            supabase.from('channels').update({ members: chan.members }).eq('id', chan.id)
+            supabaseClient.from('channels').update({ members: chan.members }).eq('id', chan.id)
           );
         }
       }
     }
   });
 
-  if (supabase) {
+  if (supabaseClient) {
     Promise.all(updatePromises).then(() => {
       showMainApp();
     }).catch(err => {
@@ -580,7 +580,7 @@ function showMainApp() {
   // Update connection status badge
   const connBadge = document.getElementById('connection-status');
   if (connBadge) {
-    if (supabase) {
+    if (supabaseClient) {
       connBadge.textContent = 'Cloud Online';
       connBadge.className = 'conn-badge status-online';
     } else {
@@ -680,11 +680,11 @@ function switchChannel(channelId) {
 
   if (state.currentUser) {
     // Mark all messages in this channel/DM as read
-    if (supabase) {
+    if (supabaseClient) {
       const unreadMsgs = state.messages.filter(msg => msg.channelId === channelId && msg.unreadBy && msg.unreadBy.includes(state.currentUser.id));
       unreadMsgs.forEach(msg => {
         const updatedUnread = msg.unreadBy.filter(id => id !== state.currentUser.id);
-        supabase.from('messages').update({ unreadBy: updatedUnread }).eq('id', msg.id).then(({ error }) => {
+        supabaseClient.from('messages').update({ unreadBy: updatedUnread }).eq('id', msg.id).then(({ error }) => {
           if (error) console.error('Error updating read receipts in Supabase:', error);
         });
       });
@@ -1292,9 +1292,9 @@ messageForm.addEventListener('submit', async () => {
   renderFileDraftPreviews();
   updateSendButtonState();
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('messages').insert([newMsg]);
+      const { error } = await supabaseClient.from('messages').insert([newMsg]);
       if (error) throw error;
     } catch (err) {
       console.error('Error inserting message to Supabase:', err);
@@ -1382,9 +1382,9 @@ async function postBotReply(botId, originalMsg) {
     parentId: null
   };
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('messages').insert([newMsg]);
+      const { error } = await supabaseClient.from('messages').insert([newMsg]);
       if (error) throw error;
     } catch (err) {
       console.error('Error inserting bot reply to Supabase:', err);
@@ -1622,9 +1622,9 @@ async function applyEmojiReactionState(msgId, emojiChar, userId) {
     currentReactions[emojiChar].push(userId);
   }
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('messages').update({ reactions: currentReactions }).eq('id', msgId);
+      const { error } = await supabaseClient.from('messages').update({ reactions: currentReactions }).eq('id', msgId);
       if (error) throw error;
     } catch (err) {
       console.error('Error updating emoji reaction in Supabase:', err);
@@ -1718,9 +1718,9 @@ threadForm.addEventListener('submit', async () => {
 
   threadTextarea.value = '';
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('messages').insert([replyMsg]);
+      const { error } = await supabaseClient.from('messages').insert([replyMsg]);
       if (error) throw error;
     } catch (err) {
       console.error('Error inserting thread reply to Supabase:', err);
@@ -1773,8 +1773,8 @@ function simulateThreadReplies(userReply) {
       parentId: parent.id
     };
 
-    if (supabase) {
-      supabase.from('messages').insert([botReply]).catch(err => {
+    if (supabaseClient) {
+      supabaseClient.from('messages').insert([botReply]).catch(err => {
         console.error('Error inserting bot thread reply to Supabase:', err);
       });
     } else {
@@ -1802,9 +1802,9 @@ window.markAsUnread = async function (messageId) {
   if (!currentUnread.includes(state.currentUser.id)) {
     currentUnread.push(state.currentUser.id);
 
-    if (supabase) {
+    if (supabaseClient) {
       try {
-        const { error } = await supabase.from('messages').update({ unreadBy: currentUnread }).eq('id', messageId);
+        const { error } = await supabaseClient.from('messages').update({ unreadBy: currentUnread }).eq('id', messageId);
         if (error) throw error;
       } catch (err) {
         console.error('Error marking as unread in Supabase:', err);
@@ -1877,9 +1877,9 @@ async function setReminder(triggerTime) {
 
   closeModal();
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('reminders').insert([reminder]);
+      const { error } = await supabaseClient.from('reminders').insert([reminder]);
       if (error) throw error;
       showToastNotification('info', 'Erinnerung gespeichert', `Wir erinnern dich am ${new Date(triggerTime).toLocaleString('de-DE')}`);
     } catch (err) {
@@ -1911,15 +1911,15 @@ setInterval(() => {
       // Trigger beautiful floating Toast notification
       triggerReminderToast(rem);
 
-      if (supabase) {
-        supabase.from('reminders').update({ triggered: true }).eq('id', rem.id).catch(err => {
+      if (supabaseClient) {
+        supabaseClient.from('reminders').update({ triggered: true }).eq('id', rem.id).catch(err => {
           console.error('Error updating triggered reminder in Supabase:', err);
         });
       }
     }
   });
 
-  if (stateChanged && !supabase) {
+  if (stateChanged && !supabaseClient) {
     saveState('reminders');
     renderSidebar();
     renderMessageFeed();
@@ -2030,9 +2030,9 @@ function renderRemindersList() {
 
 window.deleteReminder = async function (remId, e) {
   e.stopPropagation();
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('reminders').delete().eq('id', remId);
+      const { error } = await supabaseClient.from('reminders').delete().eq('id', remId);
       if (error) throw error;
     } catch (err) {
       console.error('Error deleting reminder in Supabase:', err);
@@ -2103,9 +2103,9 @@ createChannelForm.addEventListener('submit', async () => {
   createChannelForm.reset();
   closeModal();
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('channels').insert([newChan]);
+      const { error } = await supabaseClient.from('channels').insert([newChan]);
       if (error) throw error;
     } catch (err) {
       console.error('Error creating channel in Supabase:', err);
@@ -2166,9 +2166,9 @@ submitInviteBtn.addEventListener('click', async () => {
   const updatedMembers = [...chan.members, ...invitedIds];
   closeModal();
 
-  if (supabase) {
+  if (supabaseClient) {
     try {
-      const { error } = await supabase.from('channels').update({ members: updatedMembers }).eq('id', chan.id);
+      const { error } = await supabaseClient.from('channels').update({ members: updatedMembers }).eq('id', chan.id);
       if (error) throw error;
 
       // Post dynamic cloud join notification messages and replies
@@ -2186,7 +2186,7 @@ submitInviteBtn.addEventListener('click', async () => {
           parentId: null
         };
 
-        supabase.from('messages').insert([joinMsg]).then(() => {
+        supabaseClient.from('messages').insert([joinMsg]).then(() => {
           setTimeout(() => {
             const replyMsgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
             const welcomeText = `Hallo zusammen! Freut mich, hier dabei zu sein. 😊`;
@@ -2200,7 +2200,7 @@ submitInviteBtn.addEventListener('click', async () => {
               reactions: {},
               parentId: null
             };
-            supabase.from('messages').insert([welcomeMsg]);
+            supabaseClient.from('messages').insert([welcomeMsg]);
           }, 2000 + Math.random() * 1000);
         });
       });
